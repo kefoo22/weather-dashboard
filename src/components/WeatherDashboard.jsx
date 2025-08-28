@@ -1,101 +1,175 @@
-import { useState } from "react";
-import { fetchWeather } from "../services/weatherApi";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
 
-function WeatherDashboard() {
+export default function WeatherDashboard() {
   const [city, setCity] = useState("");
   const [weather, setWeather] = useState(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSearch = async () => {
-    setError("");
-    setWeather(null);
+  const API_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY;
+
+  // Demo cities for shuffle
+  const demoCities = ["London", "New York", "Tokyo", "Nairobi", "Paris", "Johannesburg"];
+
+  // 🌍 Auto-detect user location on mount
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        try {
+          setLoading(true);
+          setError("");
+          const res = await axios.get(
+            `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${API_KEY}&units=metric`
+          );
+          setWeather(res.data);
+        } catch {
+          setError("Unable to fetch location weather ❌");
+        } finally {
+          setLoading(false);
+        }
+      });
+    }
+  }, []);
+
+  // 🔎 Search city manually
+  const fetchWeather = async (customCity) => {
+    const targetCity = customCity || city;
+    if (!targetCity) return;
     try {
-      const data = await fetchWeather(city);
-      setWeather(data);
-    } catch (err) {
-      setError("We couldn’t find that city. Please try another one 🌍");
+      setLoading(true);
+      setError("");
+      setWeather(null);
+      const res = await axios.get(
+        `https://api.openweathermap.org/data/2.5/weather?q=${targetCity}&appid=${API_KEY}&units=metric`
+      );
+      setWeather(res.data);
+    } catch {
+      setError("⚠️ City not found. Try again!");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleReset = () => {
+  // 🎲 Shuffle demo city
+  const shuffleDemoCity = () => {
+    const randomCity = demoCities[Math.floor(Math.random() * demoCities.length)];
+    fetchWeather(randomCity);
+  };
+
+  const resetDashboard = () => {
     setCity("");
     setWeather(null);
     setError("");
   };
 
+  // 🧥 Clothing recommendation
   const getClothingRecommendation = (temp) => {
-    if (temp < 10) return "🧥 Wear a warm jacket!";
-    if (temp < 20) return "👕 Light sweater recommended.";
+    if (temp < 10) return "🧥 Wear a heavy jacket!";
+    if (temp < 20) return "👕 Light sweater or hoodie!";
     return "😎 T-shirt weather!";
   };
 
   return (
-    <div className="w-full max-w-md mx-auto p-4 sm:p-6 bg-white shadow-xl rounded-2xl mt-6 sm:mt-10">
-      <h1 className="text-xl sm:text-2xl font-bold text-center mb-4">
-        🌤 Weather Dashboard
+    <div className="flex flex-col items-center min-h-screen p-6 bg-gradient-to-r from-blue-400 to-purple-500 text-white">
+      <h1 className="text-3xl md:text-4xl font-bold mb-6 text-center">
+        🌦 Weather Dashboard
       </h1>
 
-      {/* Search + Buttons */}
-      <div className="flex flex-col sm:flex-row gap-2 mb-4">
+      {/* Search bar */}
+      <div className="flex w-full max-w-md gap-2 mb-6">
         <input
           type="text"
           placeholder="Enter city..."
           value={city}
           onChange={(e) => setCity(e.target.value)}
-          className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="flex-grow p-3 rounded-lg text-black outline-none"
         />
-        <div className="flex gap-2">
-          <button
-            onClick={handleSearch}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 w-full sm:w-auto"
-          >
-            Search
-          </button>
-          <button
-            onClick={handleReset}
-            className="px-4 py-2 bg-gray-300 text-black rounded-lg hover:bg-gray-400 w-full sm:w-auto"
-          >
-            Reset
-          </button>
-        </div>
+        <button
+          onClick={() => fetchWeather()}
+          className="bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+        >
+          Search
+        </button>
+        <button
+          onClick={resetDashboard}
+          className="bg-gray-600 px-4 py-2 rounded-lg hover:bg-gray-700 transition"
+        >
+          Reset
+        </button>
       </div>
 
-      {/* Error State */}
-      {error && (
-        <div className="p-6 text-center bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-600 font-semibold mb-2">⚠️ Oops!</p>
-          <p className="text-gray-700">{error}</p>
-        </div>
+      {/* Loading Spinner */}
+      {loading && (
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white mb-4"></div>
       )}
 
-      {/* Weather Info */}
-      {weather && (
-        <div className="text-center space-y-2">
-          <h2 className="text-lg sm:text-xl font-semibold">{weather.name}</h2>
-          <img
-            src={`https://openweathermap.org/img/wn/${weather.weather[0].icon}@2x.png`}
-            alt="Weather Icon"
-            className="mx-auto w-20 sm:w-24"
-          />
-          <p className="text-lg sm:text-xl">🌡 {weather.main.temp} °C</p>
-          <p>💧 Humidity: {weather.main.humidity}%</p>
-          <p>💨 Wind: {weather.wind.speed} m/s</p>
+      {/* Error with animation */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            className="p-4 bg-red-500 text-white rounded-lg shadow-md max-w-md text-center mb-4"
+          >
+            {error}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          {/* Clothing Recommendation */}
-          <div className="mt-4 p-3 bg-blue-100 text-blue-800 font-medium rounded-lg">
-            {getClothingRecommendation(weather.main.temp)}
-          </div>
-        </div>
+      {/* Empty state */}
+      {!weather && !error && !loading && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center mt-10 px-4"
+        >
+          <p className="text-lg md:text-xl text-white/90">
+            🔍 Enter a city above or allow location access
+          </p>
+          <p className="text-sm md:text-base text-white/70 mt-2">
+            We'll show you live weather data and clothing suggestions.
+          </p>
+          {/* Shuffle demo city button */}
+          <button
+            onClick={shuffleDemoCity}
+            className="mt-4 bg-yellow-400 text-gray-900 px-5 py-2 rounded-lg hover:bg-yellow-500 transition font-semibold shadow-md"
+          >
+            🎲 Shuffle Demo City
+          </button>
+        </motion.div>
       )}
 
-      {/* Empty State (when no search yet) */}
-      {!weather && !error && (
-        <div className="mt-6 text-center text-gray-500">
-          <p>🔎 Start by searching for a city above</p>
-        </div>
-      )}
+      {/* Weather Card */}
+      <AnimatePresence>
+        {weather && (
+          <motion.div
+            key={weather.id}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.3 }}
+            className="bg-white text-gray-800 p-6 rounded-xl shadow-xl w-full max-w-md text-center"
+          >
+            <h2 className="text-2xl font-bold mb-2">{weather.name}</h2>
+            <img
+              src={`https://openweathermap.org/img/wn/${weather.weather[0].icon}@2x.png`}
+              alt="Weather Icon"
+              className="mx-auto"
+            />
+            <p className="text-lg">
+              🌡 {weather.main.temp}°C | 💧 {weather.main.humidity}% | 🌬{" "}
+              {weather.wind.speed} m/s
+            </p>
+            <p className="mt-4 font-semibold">
+              {getClothingRecommendation(weather.main.temp)}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
-
-export default WeatherDashboard;
