@@ -93,5 +93,3 @@ Push to branch (git push origin feat/amazing-feature)
 
 Open a Pull Request 🎉
 
-📜 License
-MIT License © 2025 [Your Name]
