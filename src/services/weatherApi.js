@@ -8,13 +8,13 @@ export const fetchWeather = async (city) => {
     const response = await axios.get(BASE_URL, {
       params: {
         q: city,
-        units: "metric", // Celsius
         appid: API_KEY,
+        units: "metric",
       },
     });
     return response.data;
-  } catch (error) {
-    console.error("Error fetching weather:", error);
-    throw error;
+  } catch (err) {
+    console.error("Error fetching weather:", err);
+    throw err;
   }
 };
